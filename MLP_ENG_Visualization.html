@@ -1,0 +1,985 @@
+<!--
+### Starting the Game
+
+1. **Open terminal/command prompt** and navigate to the project folder:
+   ```
+   cd C:\ADisk\Project\Python\LLM_Training\D2_MLP
+   ```
+2. **Start the web server** (IMPORTANT: Must run from the project directory!):
+   ```
+   python -m http.server 8000
+   ```
+3. **Open your browser** and go to: `http://localhost:8000` for MLP_ENG_Visualization.html
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLP Number Recognition (ENG) — Neural Network Visualization</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f5f5fa; color: #333344;
+            min-height: 100vh; overflow-x: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #e8e8f8 0%, #d8d8f0 50%, #c8c8e8 100%);
+            padding: 20px 30px; border-bottom: 2px solid #2070c0; text-align: center;
+        }
+        .header h1 { font-size: 28px; font-weight: 700; color: #2070c0; }
+        .header p { color: #666688; font-size: 14px; margin-top: 4px; }
+        .tabs {
+            display: flex; background: #fff; border-bottom: 1px solid #d0d0e0;
+        }
+        .tab-btn {
+            flex: 1; padding: 14px 20px; background: transparent; border: none;
+            color: #8888aa; font-size: 15px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s; border-bottom: 3px solid transparent;
+        }
+        .tab-btn:hover { color: #333355; }
+        .tab-btn.active { color: #2070c0; border-bottom-color: #2070c0; background: rgba(32,112,192,0.06); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .main-container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .network-container, .info-panel, .chart-box, .drawing-section {
+            background: #fff; border-radius: 12px; border: 1px solid #d0d0e0;
+            padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .network-container h2, .info-panel h3 { color: #2070c0; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .network-container h2 .badge { font-size: 11px; background: #e8eef8; padding: 2px 10px; border-radius: 10px; color: #2070c0; border: 1px solid #b0c8e8; font-weight: 400; }
+        canvas#networkCanvas { width: 100%; height: 520px; background: #fafafe; border-radius: 8px; border: 1px solid #e0e0ee; }
+        .layer-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .layer-card { background: #f8f8fd; border-radius: 8px; padding: 12px 15px; border: 1px solid #d0d0e0; border-left: 3px solid #4080c0; transition: all 0.3s; }
+        .layer-card:hover { border-color: #2070c0; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(32,112,192,0.1); }
+        .layer-card .layer-name { color: #2070c0; font-weight: 600; font-size: 13px; }
+        .layer-card .layer-detail { color: #666688; font-size: 12px; }
+        .layer-card .layer-shape { color: #4080c0; font-size: 11px; font-family: 'Consolas', monospace; }
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 15px 0; }
+        .btn { padding: 8px 18px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background: #2070c0; color: #fff; }
+        .btn-primary:hover { background: #1a5ca0; }
+        .btn-primary:disabled { background: #a0c0e0; color: #e0e0f0; cursor: not-allowed; }
+        .btn-secondary { background: #e0e0ee; color: #444466; }
+        .btn-secondary:hover { background: #d0d0e0; }
+        .btn-warning { background: #e0a040; color: #fff; }
+        .btn-warning:hover { background: #cc9038; }
+        .btn-warning:disabled { background: #e0d0b0; color: #aaaacc; cursor: not-allowed; }
+        .slider-container { display: flex; align-items: center; gap: 10px; color: #666688; font-size: 13px; }
+        .slider-container input[type="range"] { width: 120px; accent-color: #2070c0; }
+        .step-indicator { font-size: 13px; color: #333355; background: #f4f4fa; padding: 6px 14px; border-radius: 6px; border: 1px solid #d0d0e0; }
+        .epoch-input { width: 60px; padding: 5px 8px; border: 1px solid #d0d0e0; border-radius: 6px; font-size: 13px; text-align: center; color: #333355; background: #fafafe; font-weight: 600; outline: none; }
+        .epoch-input:focus { border-color: #2070c0; box-shadow: 0 0 0 2px rgba(32,112,192,0.1); }
+        .input-label { font-size: 13px; color: #666688; display: flex; align-items: center; gap: 6px; }
+        .training-vis { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width:900px) { .training-vis { grid-template-columns: 1fr; } }
+        canvas#lossChart, canvas#accChart { width: 100%; height: 250px; background: #fafafe; border-radius: 6px; }
+        .training-log { background: #fafafe; border-radius: 6px; padding: 15px; font-family: 'Consolas', monospace; font-size: 12px; color: #4080c0; height: 200px; overflow-y: auto; border: 1px solid #d0d0e0; }
+        .training-log .epoch-line { color: #2070c0; font-weight: 600; }
+        .training-log .data-line { color: #3a8a5a; }
+        .training-log .arrow-line { color: #c08840; }
+        .prediction-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+        @media (max-width:800px) { .prediction-layout { grid-template-columns: 1fr; } }
+        canvas#drawCanvas { width: 240px; height: 240px; background: #fff; border-radius: 8px; border: 2px solid #d0d0e0; cursor: crosshair; display: block; margin: 0 auto; touch-action: none; }
+        canvas#inputPreview { width: 56px; height: 56px; background: #fff; border-radius: 4px; border: 1px solid #d0d0e0; display: block; margin: 10px auto; image-rendering: pixelated; }
+        .prediction-result { text-align: center; margin-top: 10px; }
+        .prediction-result .digit { font-size: 48px; font-weight: 700; color: #2070c0; }
+        .prediction-result .confidence { font-size: 14px; color: #666688; }
+        .prob-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12px; }
+        .prob-bar .label { width: 20px; text-align: right; color: #666688; font-weight: 600; }
+        .prob-bar .bar-bg { flex: 1; height: 16px; background: #e8e8f2; border-radius: 8px; overflow: hidden; }
+        .prob-bar .bar-fill { height: 100%; border-radius: 8px; transition: width 0.3s; background: linear-gradient(90deg, #2070c0, #4090e0); }
+        .prob-bar .bar-fill.active { background: linear-gradient(90deg, #3aa070, #40c080); box-shadow: 0 0 8px rgba(58,160,112,0.3); }
+        .prob-bar .pct { width: 40px; color: #666688; font-family: 'Consolas', monospace; }
+        .forward-info { background: #f8f8fd; border-radius: 8px; padding: 15px; border: 1px solid #d0d0e0; margin-top: 15px; }
+        .forward-info .step-title { color: #2070c0; font-weight: 600; font-size: 14px; }
+        .forward-info .step-detail { color: #666688; font-size: 13px; font-family: 'Consolas', monospace; }
+        .forward-info .step-math { color: #4080c0; font-size: 12px; margin-top: 3px; }
+        .formula-box { background: #f8f8fd; border-radius: 6px; padding: 12px 15px; border: 1px solid #d0d0e0; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.8; }
+        .formula-box .highlight { color: #2070c0; }
+        .formula-box .hl-blue { color: #4080c0; }
+        .formula-box .hl-green { color: #3a8a5a; }
+        .formula-box .hl-orange { color: #c08840; }
+        .bp-detail { background: #f8f8fd; border-radius: 6px; padding: 15px; border: 1px solid #d0d0e0; margin-top: 10px; }
+        .bp-detail .bp-step { padding: 8px 0; border-bottom: 1px solid #e0e0ee; }
+        .bp-detail .bp-step:last-child { border-bottom: none; }
+        .bp-detail .bp-label { color: #2070c0; font-weight: 600; font-size: 13px; }
+        .bp-detail .bp-expr { color: #666688; font-size: 12px; font-family: 'Consolas', monospace; }
+        .model-info-box { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }
+        .model-info-box .info-item { background: #f8f8fd; border-radius: 6px; padding: 12px 15px; border: 1px solid #d0d0e0; }
+        .model-info-box .info-item .info-label { color: #8888aa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .model-info-box .info-item .info-value { color: #2070c0; font-size: 16px; font-weight: 700; margin-top: 4px; }
+        .model-info-box .info-item .info-sub { color: #666688; font-size: 11px; margin-top: 2px; }
+        @media (max-width:700px) { .model-info-box { grid-template-columns: 1fr; } }
+        .status-bar { background: #fff; border-top: 1px solid #d0d0e0; padding: 10px 20px; display: flex; justify-content: space-between; font-size: 12px; }
+        .status-bar .status-text { color: #666688; }
+        .status-bar .status-text .highlight { color: #2070c0; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f0f0f5; }
+        ::-webkit-scrollbar-thumb { background: #c0c0d0; border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>🧠 MLP Number Recognition (ENG) — Visualization</h1>
+    <p>StudentMLP: 784 → 128 → 64 → 10 | ReLU | Adam (lr=0.001) | CrossEntropyLoss | 5 Epochs</p>
+</div>
+<div class="tabs">
+    <button class="tab-btn active" data-tab="structure">🏗️ Network Structure</button>
+    <button class="tab-btn" data-tab="training">📈 Training Simulation</button>
+    <button class="tab-btn" data-tab="prediction">✏️ Prediction (Forward Pass)</button>
+</div>
+<div class="main-container">
+
+<!-- ===================== TAB 1: Network Structure ===================== -->
+<div class="tab-content active" id="tab-structure">
+    <div class="network-container">
+        <h2>🌐 StudentMLP Architecture <span class="badge">4 Layers</span> <span class="badge">Total: 109,386 parameters</span></h2>
+        <canvas id="networkCanvas"></canvas>
+    </div>
+    <div class="info-panel">
+        <h3>📋 Layer Details</h3>
+        <div class="layer-info" id="layerInfo"></div>
+    </div>
+    <div class="info-panel">
+        <h3>📊 Model Configuration (from MLP_NumberRecognition_ENG.py)</h3>
+        <div class="model-info-box">
+            <div class="info-item">
+                <div class="info-label">Optimizer</div>
+                <div class="info-value">Adam</div>
+                <div class="info-sub">Learning Rate: 0.001</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Loss Function</div>
+                <div class="info-value">CrossEntropyLoss</div>
+                <div class="info-sub">Suitable for multi-class classification</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Batch Size</div>
+                <div class="info-value">64</div>
+                <div class="info-sub">MNIST dataset (60,000 train / 10,000 test)</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Epochs</div>
+                <div class="info-value">5</div>
+                <div class="info-sub">Full passes over training data</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Input Preprocessing</div>
+                <div class="info-value">Normalize</div>
+                <div class="info-sub">mean=0.1307, std=0.3081 (MNIST statistics)</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Device</div>
+                <div class="info-value">GPU (CUDA)</div>
+                <div class="info-sub">Falls back to CPU if CUDA unavailable</div>
+            </div>
+        </div>
+    </div>
+    <div class="info-panel">
+        <h3>📐 Forward Propagation Flow</h3>
+        <div class="formula-box">
+            <div><span class="highlight">Step 1:</span> <span class="hl-blue">Input</span> → Flatten 28×28 image to 784-element vector <span class="hl-green">x.view(-1, 784)</span></div>
+            <div><span class="highlight">Step 2:</span> <span class="hl-blue">FC1</span> → z₁ = W₁·x + b₁ → a₁ = ReLU(z₁) <span class="hl-orange">[784→128]</span></div>
+            <div><span class="highlight">Step 3:</span> <span class="hl-blue">FC2</span> → z₂ = W₂·a₁ + b₂ → a₂ = ReLU(z₂) <span class="hl-orange">[128→64]</span></div>
+            <div><span class="highlight">Step 4:</span> <span class="hl-blue">Output</span> → z₃ = W₃·a₂ + b₃ → logits <span class="hl-orange">[64→10]</span></div>
+            <div><span class="highlight">Step 5:</span> <span class="hl-blue">Softmax</span> → P(y=k) = exp(zₖ) / Σexp(zⱼ) → predicted digit (0-9)</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== TAB 2: Training Simulation ===================== -->
+<div class="tab-content" id="tab-training">
+    <div class="controls">
+        <button class="btn btn-primary" id="btnTrainStart">▶ Start Training</button>
+        <button class="btn btn-warning" id="btnTrainPause" disabled>⏸ Pause</button>
+        <button class="btn btn-secondary" id="btnTrainReset">🔄 Reset</button>
+        <span class="step-indicator" id="trainEpoch">Epoch: 0 / 5</span>
+        <span class="step-indicator" id="trainStep">Step: 0 / 500</span>
+        <label class="input-label">Epochs: <input type="number" class="epoch-input" id="epochInput" value="5" min="1" max="20"></label>
+        <div class="slider-container"><span>Speed:</span><input type="range" id="trainSpeed" min="1" max="20" value="8"><span id="speedLabel">8x</span></div>
+    </div>
+    <div class="training-vis">
+        <div class="chart-box"><h3>📉 Training Loss (CrossEntropyLoss)</h3><canvas id="lossChart"></canvas></div>
+        <div class="chart-box"><h3>📈 Test Accuracy (%)</h3><canvas id="accChart"></canvas></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px;">
+        <div class="chart-box">
+            <h3>🔄 Backpropagation Visualization</h3>
+            <canvas id="bpCanvas" style="width:100%;height:200px;background:#fafafe;border-radius:6px;border:1px solid #d0d0e0;"></canvas>
+            <div class="bp-detail" style="margin-top:10px;">
+                <div class="bp-step"><div class="bp-label">① Forward Pass</div><div class="bp-expr">x → fc1(ReLU) → fc2(ReLU) → fc3 → Softmax → Loss</div></div>
+                <div class="bp-step"><div class="bp-label">② Loss Calculation</div><div class="bp-expr">CrossEntropyLoss = -log(P(y_true))</div></div>
+                <div class="bp-step"><div class="bp-label">③ Backward Pass (Chain Rule)</div><div class="bp-expr">∂L/∂W₃ = ∂L/∂z₃ · ∂z₃/∂W₃</div><div class="bp-expr">∂L/∂W₂ = ∂L/∂z₃ · W₃ · ReLU'(z₂) · a₁ᵀ</div><div class="bp-expr">∂L/∂W₁ = ∂L/∂z₃ · W₃ · ReLU'(z₂) · W₂ · ReLU'(z₁) · xᵀ</div></div>
+                <div class="bp-step"><div class="bp-label">④ Weight Update (Adam)</div><div class="bp-expr">m_t = β₁·m_{t-1} + (1-β₁)·g_t</div><div class="bp-expr">v_t = β₂·v_{t-1} + (1-β₂)·g_t²</div><div class="bp-expr">W ← W - η · m̂_t / (√v̂_t + ε) &nbsp; (η = 0.001)</div></div>
+            </div>
+        </div>
+        <div class="chart-box">
+            <h3>📋 Training Log</h3>
+            <div class="training-log" id="trainingLog"><div class="data-line">Ready to train... Click "Start Training"</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== TAB 3: Prediction ===================== -->
+<div class="tab-content" id="tab-prediction">
+    <div class="controls">
+        <button class="btn btn-primary" id="btnPredict">🔍 Predict</button>
+        <button class="btn btn-secondary" id="btnClear">🗑️ Clear</button>
+        <button class="btn btn-secondary" id="btnRandomDigit">🎲 Random Digit</button>
+    </div>
+    <div class="prediction-layout">
+        <div class="drawing-section">
+            <h3>✏️ Draw a digit (0-9)</h3>
+            <canvas id="drawCanvas" width="240" height="240"></canvas>
+            <div style="text-align:center;font-size:11px;color:#8888aa;margin-top:5px;">Draw with mouse or touch</div>
+            <canvas id="inputPreview" width="28" height="28"></canvas>
+            <div style="text-align:center;font-size:11px;color:#8888aa;">28×28 downsampled input</div>
+        </div>
+        <div>
+            <div class="info-panel">
+                <h3>📊 Prediction Results</h3>
+                <div class="prediction-result">
+                    <div>Predicted: <span class="digit" id="predictedDigit">—</span></div>
+                    <div class="confidence" id="confidenceText">Confidence: —</div>
+                </div>
+                <div id="probBars"></div>
+            </div>
+            <div class="info-panel">
+                <h3>➡️ Forward Propagation Trace</h3>
+                <div id="forwardTrace">
+                    <div class="forward-info">
+                        <div class="step-title">Ready</div>
+                        <div class="step-detail">Draw a digit and click "Predict"</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<div class="status-bar">
+    <div class="status-text" id="statusText">Ready — <span class="highlight">select a tab to explore</span></div>
+    <div class="status-text">StudentMLP: 784 → 128 → 64 → 10 | ReLU | Adam (lr=0.001) | CrossEntropy | MNIST</div>
+</div>
+
+<script>
+// ===========================
+// Model Architecture Definition
+// ===========================
+const NET = {
+    layers: [
+        { name: 'Input', neurons: 784, color: '#4080c0' },
+        { name: 'FC1 (fc1)', neurons: 128, color: '#c08840', activation: 'ReLU', weightShape: [128, 784] },
+        { name: 'FC2 (fc2)', neurons: 64, color: '#3a8a5a', activation: 'ReLU', weightShape: [64, 128] },
+        { name: 'Output (fc3)', neurons: 10, color: '#2070c0', activation: 'Softmax', weightShape: [10, 64] }
+    ],
+    totalParams: 784*128 + 128 + 128*64 + 64 + 64*10 + 10  // 109,386
+};
+
+// ===========================
+// Tab Navigation
+// ===========================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+        if (this.dataset.tab === 'structure') drawNetwork();
+    });
+});
+
+// ===========================
+// Network Canvas Drawing
+// ===========================
+const nCanvas = document.getElementById('networkCanvas');
+const nCtx = nCanvas.getContext('2d');
+
+function resizeNetCanvas() {
+    const r = nCanvas.getBoundingClientRect();
+    const d = window.devicePixelRatio || 1;
+    nCanvas.width = r.width * d;
+    nCanvas.height = 520 * d;
+    nCtx.scale(d, d);
+}
+
+function drawNetwork() {
+    resizeNetCanvas();
+    const W = nCanvas.width / (window.devicePixelRatio || 1);
+    const H = 520;
+    const ctx = nCtx;
+    ctx.clearRect(0, 0, W, H);
+
+    const lX = [80, 260, 440, 620];
+    const lN = ['Input (784)', 'FC1 (128)', 'FC2 (64)', 'Output (10)'];
+    const lC = ['#4080c0', '#c08840', '#3a8a5a', '#2070c0'];
+    const lCnt = [784, 128, 64, 10];
+
+    // Draw connections between layers
+    for (let l = 0; l < 3; l++) {
+        const x1 = lX[l] + 95;
+        const x2 = lX[l+1] - 5;
+        const n1 = Math.min(lCnt[l], 24);
+        const n2 = Math.min(lCnt[l+1], 24);
+        for (let i = 0; i < n1; i++) {
+            for (let j = 0; j < n2; j++) {
+                const y1 = 80 + i / (n1 - 1 || 1) * (H - 160);
+                const y2 = 80 + j / (n2 - 1 || 1) * (H - 160);
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = `rgba(100, 120, 180, ${0.08 + Math.random() * 0.05})`;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+        }
+    }
+
+    // Draw layer boxes and neurons
+    for (let l = 0; l < 4; l++) {
+        const x = lX[l] + 45;
+        const c = lCnt[l];
+        const dC = Math.min(c, 24);
+        const color = lC[l];
+
+        // Layer background
+        ctx.fillStyle = 'rgba(240, 240, 250, 0.8)';
+        ctx.strokeStyle = '#d0d0e0';
+        ctx.lineWidth = 1;
+        roundRect(ctx, x - 15, 65, 125, H - 130, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Layer name
+        ctx.fillStyle = '#333355';
+        ctx.font = 'bold 13px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(lN[l], x + 47, 55);
+
+        // Neuron count
+        ctx.fillStyle = '#d0d0e0';
+        ctx.font = '11px Segoe UI, sans-serif';
+        ctx.fillText('×' + c, x + 47, H - 50);
+
+        // Draw neurons
+        for (let i = 0; i < dC; i++) {
+            const y = 80 + i / (dC - 1 || 1) * (H - 160);
+            const r = l === 3 ? 5 : 3;
+            ctx.beginPath();
+            ctx.arc(x + 47, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.5 + 0.5 * (1 - i / dC);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+        }
+
+        // Activation labels
+        if (l > 0 && l < 3) {
+            ctx.fillStyle = '#8888aa';
+            ctx.font = '10px Consolas, monospace';
+            ctx.fillText('ReLU', x + 47, H - 35);
+        } else if (l === 3) {
+            ctx.fillStyle = '#3a8a5a';
+            ctx.font = '10px Consolas, monospace';
+            ctx.fillText('Softmax', x + 47, H - 35);
+        }
+    }
+
+    // Weight shape labels
+    ctx.fillStyle = '#8888aa';
+    ctx.font = '10px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('[128×784]', 190, H - 12);
+    ctx.fillText('[64×128]', 370, H - 12);
+    ctx.fillText('[10×64]', 560, H - 12);
+
+    // Input/output annotations
+    ctx.fillStyle = '#4080c0';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('← 28×28 image (normalized)', 10, H / 2);
+    ctx.fillStyle = '#2070c0';
+    ctx.textAlign = 'right';
+    ctx.fillText('digit 0-9 →', W - 10, H / 2);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+w-r, y);
+    ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+    ctx.lineTo(x+w, y+h-r);
+    ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h);
+    ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+    ctx.lineTo(x, y+r);
+    ctx.quadraticCurveTo(x, y, x+r, y);
+    ctx.closePath();
+}
+
+// ===========================
+// Layer Info Cards
+// ===========================
+function renderLayerCards() {
+    const c = document.getElementById('layerInfo');
+    const layers = [
+        { name: 'Input Layer', type: 'Flatten', shape: '28×28 → 784', params: '0', color: '#4080c0',
+          detail: 'x.view(x.shape[0], -1)' },
+        { name: 'Fully Connected 1 (fc1)', type: 'Linear + ReLU', shape: '[batch, 784] → [batch, 128]', 
+          weights: '[128, 784]', bias: '[128]', params: '100,352', color: '#c08840',
+          detail: 'self.relu(self.fc1(x))' },
+        { name: 'Fully Connected 2 (fc2)', type: 'Linear + ReLU', shape: '[batch, 128] → [batch, 64]', 
+          weights: '[64, 128]', bias: '[64]', params: '8,256', color: '#3a8a5a',
+          detail: 'self.relu(self.fc2(x))' },
+        { name: 'Output Layer (fc3)', type: 'Linear', shape: '[batch, 64] → [batch, 10]', 
+          weights: '[10, 64]', bias: '[10]', params: '650', color: '#2070c0',
+          detail: 'self.fc3(x) → logits' }
+    ];
+    c.innerHTML = layers.map(l => `
+        <div class="layer-card" style="border-left:3px solid ${l.color};">
+            <div class="layer-name">${l.name}</div>
+            <div class="layer-detail">${l.type}</div>
+            <div class="layer-shape">${l.shape}</div>
+            ${l.weights ? `<div class="layer-shape">Weights: ${l.weights} | Bias: ${l.bias}</div>` : ''}
+            <div class="layer-shape" style="color:#8888aa;">Parameters: ${l.params}</div>
+            <div class="layer-shape" style="color:#666688;font-style:italic;">${l.detail}</div>
+        </div>
+    `).join('');
+}
+
+// ===========================
+// Drawing Canvas (for prediction)
+// ===========================
+const drawCanvas = document.getElementById('drawCanvas');
+const drawCtx = drawCanvas.getContext('2d');
+const inputPreview = document.getElementById('inputPreview');
+const previewCtx = inputPreview.getContext('2d');
+let isDrawing = false, lX = 0, lY = 0;
+
+function clearDrawCanvas() {
+    drawCtx.fillStyle = '#fff';
+    drawCtx.fillRect(0, 0, 240, 240);
+    previewCtx.fillStyle = '#fff';
+    previewCtx.fillRect(0, 0, 28, 28);
+    document.getElementById('predictedDigit').textContent = '—';
+    document.getElementById('confidenceText').textContent = 'Confidence: —';
+    document.getElementById('probBars').innerHTML = '';
+    document.getElementById('forwardTrace').innerHTML = '<div class="forward-info"><div class="step-title">Ready</div><div class="step-detail">Draw a digit and click "Predict"</div></div>';
+}
+clearDrawCanvas();
+
+// Mouse events
+drawCanvas.addEventListener('mousedown', e => { isDrawing = true; lX = e.offsetX; lY = e.offsetY; });
+drawCanvas.addEventListener('mousemove', e => {
+    if (!isDrawing) return;
+    drawCtx.beginPath();
+    drawCtx.moveTo(lX, lY);
+    drawCtx.lineTo(e.offsetX, e.offsetY);
+    drawCtx.strokeStyle = '#000';
+    drawCtx.lineWidth = 18;
+    drawCtx.lineCap = 'round';
+    drawCtx.stroke();
+    lX = e.offsetX; lY = e.offsetY;
+});
+drawCanvas.addEventListener('mouseup', () => { isDrawing = false; previewCtx.drawImage(drawCanvas, 0, 0, 28, 28); });
+drawCanvas.addEventListener('mouseleave', () => { isDrawing = false; });
+
+// Touch events
+drawCanvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    isDrawing = true;
+    lX = t.clientX - drawCanvas.getBoundingClientRect().left;
+    lY = t.clientY - drawCanvas.getBoundingClientRect().top;
+});
+drawCanvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (!isDrawing) return;
+    drawCtx.beginPath();
+    drawCtx.moveTo(lX, lY);
+    const nx = t.clientX - drawCanvas.getBoundingClientRect().left;
+    const ny = t.clientY - drawCanvas.getBoundingClientRect().top;
+    drawCtx.lineTo(nx, ny);
+    drawCtx.strokeStyle = '#000';
+    drawCtx.lineWidth = 18;
+    drawCtx.lineCap = 'round';
+    drawCtx.stroke();
+    lX = nx; lY = ny;
+});
+drawCanvas.addEventListener('touchend', () => { isDrawing = false; previewCtx.drawImage(drawCanvas, 0, 0, 28, 28); });
+document.getElementById('btnClear').addEventListener('click', clearDrawCanvas);
+
+// ===========================
+// SimpleMLP (JavaScript implementation of StudentMLP)
+// ===========================
+class SimpleMLP {
+    constructor() {
+        this.seed = 42;
+        this.loaded = false;
+        this.initWeights(); // fallback random weights
+    }
+    randn() {
+        this.seed = (this.seed * 1664525 + 1013904223) & 0x7fffffff;
+        const u = this.seed / 0x7fffffff;
+        this.seed = (this.seed * 1664525 + 1013904223) & 0x7fffffff;
+        const v = this.seed / 0x7fffffff;
+        return Math.sqrt(-2 * Math.log(u + 1e-10)) * Math.cos(2 * Math.PI * v);
+    }
+    initWeights() {
+        this.W1 = Array.from({length: 128}, () => Array.from({length: 784}, () => this.randn() * 0.05));
+        this.b1 = new Array(128).fill(0);
+        this.W2 = Array.from({length: 64}, () => Array.from({length: 128}, () => this.randn() * 0.05));
+        this.b2 = new Array(64).fill(0);
+        this.W3 = Array.from({length: 10}, () => Array.from({length: 64}, () => this.randn() * 0.05));
+        this.b3 = new Array(10).fill(0);
+    }
+    async loadFromJSON(url) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('Failed to load weights');
+            const data = await resp.json();
+            this.W1 = data['fc1.weight'];
+            this.b1 = data['fc1.bias'];
+            this.W2 = data['fc2.weight'];
+            this.b2 = data['fc2.bias'];
+            this.W3 = data['fc3.weight'];
+            this.b3 = data['fc3.bias'];
+            this.loaded = true;
+            document.getElementById('statusText').innerHTML = '✅ Trained weights loaded from <span class="highlight">mnist_mlp_weights_ENG.pth</span>';
+            console.log('Trained weights loaded successfully!');
+        } catch (e) {
+            console.warn('Could not load trained weights, using random init:', e);
+            document.getElementById('statusText').innerHTML = '⚠️ Using random weights — <span class="highlight">trained weights not found</span>';
+        }
+    }
+    relu(x) { return Math.max(0, x); }
+    softmax(z) {
+        const max = Math.max(...z);
+        const e = z.map(v => Math.exp(v - max));
+        const s = e.reduce((a, b) => a + b, 0);
+        return s > 0 ? e.map(v => v / s) : new Array(z.length).fill(0.1);
+    }
+    forward(input, trace) {
+        const steps = [];
+        if (trace) steps.push({name: 'Input (Flatten)', data: input.slice(0, 112), shape: '784', desc: 'x.view(-1, 784): 28×28 image → 784 vector'});
+        
+        // fc1 + ReLU
+        let z1 = new Array(128).fill(0);
+        for (let i = 0; i < 128; i++) {
+            let s = this.b1[i];
+            for (let j = 0; j < 784; j++) s += this.W1[i][j] * input[j];
+            z1[i] = s;
+        }
+        let a1 = z1.map(v => this.relu(v));
+        if (trace) steps.push({name: 'FC1 + ReLU', data: a1, shape: '128', desc: 'z₁ = W₁·x + b₁ → a₁ = ReLU(z₁)'});
+        
+        // fc2 + ReLU
+        let z2 = new Array(64).fill(0);
+        for (let i = 0; i < 64; i++) {
+            let s = this.b2[i];
+            for (let j = 0; j < 128; j++) s += this.W2[i][j] * a1[j];
+            z2[i] = s;
+        }
+        let a2 = z2.map(v => this.relu(v));
+        if (trace) steps.push({name: 'FC2 + ReLU', data: a2, shape: '64', desc: 'z₂ = W₂·a₁ + b₂ → a₂ = ReLU(z₂)'});
+        
+        // fc3 (output logits)
+        let z3 = new Array(10).fill(0);
+        for (let i = 0; i < 10; i++) {
+            let s = this.b3[i];
+            for (let j = 0; j < 64; j++) s += this.W3[i][j] * a2[j];
+            z3[i] = s;
+        }
+        if (trace) steps.push({name: 'FC3 (Output)', data: z3, shape: '10', desc: 'z₃ = W₃·a₂ + b₃ (logits)'});
+        
+        // Softmax
+        let probs = this.softmax(z3);
+        if (trace) steps.push({name: 'Softmax', data: probs, shape: '10', desc: 'P(y=k) = exp(zₖ) / Σexp(zⱼ)'});
+        
+        return {logits: z3, probs, steps};
+    }
+}
+
+const mlp = new SimpleMLP();
+
+// ===========================
+// Prediction Handler
+// ===========================
+document.getElementById('btnPredict').addEventListener('click', function() {
+    const d = previewCtx.getImageData(0, 0, 28, 28);
+    const pixels = [];
+    // Convert canvas pixels to [0,1] (MNIST convention: 0=background, 1=foreground)
+    for (let i = 0; i < d.data.length; i += 4) pixels.push(1 - d.data[i] / 255);
+    if (!pixels.some(p => p > 0.1)) {
+        document.getElementById('statusText').innerHTML = '⚠️ Please draw a digit first — <span class="highlight">canvas is empty</span>';
+        return;
+    }
+    // Apply MNIST normalization: transforms.Normalize(mean=(0.1307,), std=(0.3081,))
+    // This computes: (pixel - 0.1307) / 0.3081 for each pixel
+    const normalizedPixels = pixels.map(p => (p - 0.1307) / 0.3081);
+    const r = mlp.forward(normalizedPixels, true);
+    const pred = r.probs.indexOf(Math.max(...r.probs));
+    
+    document.getElementById('predictedDigit').textContent = pred;
+    document.getElementById('confidenceText').textContent = `Confidence: ${(r.probs[pred] * 100).toFixed(1)}%`;
+    
+    // Probability bars
+    document.getElementById('probBars').innerHTML = r.probs.map((p, i) => 
+        `<div class="prob-bar"><span class="label">${i}</span><div class="bar-bg"><div class="bar-fill ${i===pred?'active':''}" style="width:${Math.max(p*100,1)}%"></div></div><span class="pct">${(p*100).toFixed(1)}%</span></div>`
+    ).join('');
+    
+    // Forward trace
+    let h = '';
+    r.steps.forEach((s, idx) => {
+        const mv = Math.max(...s.data.map(Math.abs));
+        const bd = s.data.slice(0, Math.min(s.data.length, 16));
+        const bh = bd.map(v => {
+            const inten = Math.min(Math.abs(v) / (mv || 1), 1);
+            const c = v >= 0 ? `rgba(32,112,192,${inten})` : `rgba(208,48,80,${inten})`;
+            return `<span style="display:inline-block;width:16px;height:16px;background:${c};border-radius:2px;margin:1px;"></span>`;
+        }).join('');
+        h += `<div class="forward-info" style="margin-bottom:8px;">
+            <div class="step-title">${idx+1}. ${s.name} <span style="font-weight:400;color:#8888aa;">[${s.shape}]</span></div>
+            <div class="step-detail">${s.desc}</div>
+            <div style="margin-top:5px;">${bh}${s.data.length>16?`<span style="color:#8888aa;font-size:11px;">+${s.data.length-16} more</span>`:''}</div>
+            <div class="step-math">Range: [${s.data.slice(0,5).map(v=>v.toFixed(3)).join(', ')}${s.data.length>5?', ...':''}]</div>
+        </div>`;
+    });
+    
+    const last = r.steps[r.steps.length - 1];
+    if (last && last.name === 'Softmax') {
+        const mi = last.data.indexOf(Math.max(...last.data));
+        h += `<div class="forward-info" style="border:2px solid #2070c0;">
+            <div class="step-title">✅ Final Prediction</div>
+            <div class="step-detail">argmax(P) = <strong style="color:#2070c0;font-size:18px;">${mi}</strong></div>
+            <div class="step-math">The neuron with highest probability wins!</div>
+        </div>`;
+    }
+    document.getElementById('forwardTrace').innerHTML = h;
+    document.getElementById('statusText').innerHTML = `✅ Prediction: digit <span class="highlight">${pred}</span> with ${(r.probs[pred]*100).toFixed(1)}% confidence`;
+});
+
+// ===========================
+// Random Digit Generator
+// ===========================
+document.getElementById('btnRandomDigit').addEventListener('click', function() {
+    clearDrawCanvas();
+    const d = Math.floor(Math.random() * 10);
+    const cx = 120 + (Math.random() - 0.5) * 40;
+    const cy = 120 + (Math.random() - 0.5) * 40;
+    const size = 40 + Math.random() * 30;
+    drawCtx.strokeStyle = '#000';
+    drawCtx.lineWidth = 18;
+    drawCtx.lineCap = 'round';
+    
+    const drawings = {
+        0: () => { drawCtx.beginPath(); drawCtx.ellipse(cx, cy, size*0.7, size, 0, 0, Math.PI*2); drawCtx.stroke(); },
+        1: () => { drawCtx.beginPath(); drawCtx.moveTo(cx, cy-size*0.8); drawCtx.lineTo(cx, cy+size*0.8); drawCtx.stroke(); },
+        2: () => { drawCtx.beginPath(); drawCtx.moveTo(cx-size*0.7, cy-size*0.5); drawCtx.quadraticCurveTo(cx+size*0.5, cy-size*0.8, cx+size*0.7, cy-size*0.2); drawCtx.quadraticCurveTo(cx+size*0.3, cy+size*0.3, cx-size*0.7, cy+size*0.8); drawCtx.stroke(); },
+        3: () => { drawCtx.beginPath(); drawCtx.moveTo(cx-size*0.6, cy-size*0.7); drawCtx.quadraticCurveTo(cx+size*0.6, cy-size*0.5, cx+size*0.4, cy); drawCtx.quadraticCurveTo(cx+size*0.6, cy+size*0.5, cx-size*0.6, cy+size*0.7); drawCtx.stroke(); },
+        4: () => { drawCtx.beginPath(); drawCtx.moveTo(cx-size*0.3, cy-size*0.8); drawCtx.lineTo(cx-size*0.8, cy+size*0.2); drawCtx.lineTo(cx+size*0.8, cy+size*0.2); drawCtx.stroke(); drawCtx.beginPath(); drawCtx.moveTo(cx+size*0.1, cy-size*0.8); drawCtx.lineTo(cx+size*0.1, cy+size*0.8); drawCtx.stroke(); },
+        5: () => { drawCtx.beginPath(); drawCtx.moveTo(cx+size*0.6, cy-size*0.7); drawCtx.lineTo(cx-size*0.6, cy-size*0.7); drawCtx.lineTo(cx-size*0.6, cy); drawCtx.quadraticCurveTo(cx+size*0.5, cy-size*0.1, cx+size*0.7, cy+size*0.4); drawCtx.quadraticCurveTo(cx+size*0.3, cy+size*0.8, cx-size*0.4, cy+size*0.6); drawCtx.stroke(); },
+        6: () => { drawCtx.beginPath(); drawCtx.ellipse(cx, cy+size*0.1, size*0.5, size*0.7, 0, 0, Math.PI*2); drawCtx.stroke(); drawCtx.beginPath(); drawCtx.arc(cx+size*0.1, cy-size*0.1, size*0.2, 0, Math.PI*2); drawCtx.stroke(); },
+        7: () => { drawCtx.beginPath(); drawCtx.moveTo(cx-size*0.7, cy-size*0.7); drawCtx.lineTo(cx+size*0.7, cy-size*0.7); drawCtx.lineTo(cx+size*0.2, cy+size*0.8); drawCtx.stroke(); },
+        8: () => { drawCtx.beginPath(); drawCtx.ellipse(cx, cy-size*0.1, size*0.5, size*0.4, 0, 0, Math.PI*2); drawCtx.stroke(); drawCtx.beginPath(); drawCtx.ellipse(cx, cy+size*0.2, size*0.5, size*0.4, 0, 0, Math.PI*2); drawCtx.stroke(); },
+        9: () => { drawCtx.beginPath(); drawCtx.ellipse(cx, cy-size*0.2, size*0.5, size*0.4, 0, 0, Math.PI*2); drawCtx.stroke(); drawCtx.beginPath(); drawCtx.moveTo(cx, cy+size*0.2); drawCtx.lineTo(cx, cy+size*0.8); drawCtx.stroke(); }
+    };
+    (drawings[d] || drawings[0])();
+    previewCtx.drawImage(drawCanvas, 0, 0, 28, 28);
+});
+
+// ===========================
+// Training Simulation
+// ===========================
+let trainingRunning = false, trainingPaused = false;
+let trainEpoch = 0, trainStep = 0, trainTimer = null;
+const LOSS_HISTORY = [], ACC_HISTORY = [], EPOCH_LOSS = [], EPOCH_ACC = [];
+let MAX_STEPS = 500, TOTAL_EPOCHS = 5, STEPS_PER_EPOCH = 100;
+
+function getEpochConfig() {
+    const val = parseInt(document.getElementById('epochInput').value);
+    TOTAL_EPOCHS = Math.max(1, Math.min(20, val || 5));
+    STEPS_PER_EPOCH = 100;
+    MAX_STEPS = TOTAL_EPOCHS * STEPS_PER_EPOCH;
+    document.getElementById('trainEpoch').textContent = `Epoch: 0 / ${TOTAL_EPOCHS}`;
+    document.getElementById('trainStep').textContent = `Step: 0 / ${MAX_STEPS}`;
+}
+
+function updateTrainingCharts() {
+    // Loss chart
+    const lossCanvas = document.getElementById('lossChart');
+    const lctx = lossCanvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    lossCanvas.width = lossCanvas.clientWidth * dpr;
+    lossCanvas.height = lossCanvas.clientHeight * dpr;
+    lctx.scale(dpr, dpr);
+    const lw = lossCanvas.clientWidth, lh = lossCanvas.clientHeight;
+    lctx.fillStyle = '#fafafe';
+    lctx.fillRect(0, 0, lw, lh);
+    
+    if (LOSS_HISTORY.length > 0) {
+        const maxLoss = 3, minLoss = 0;
+        // Grid lines
+        lctx.strokeStyle = '#e0e0ee';
+        lctx.lineWidth = 0.5;
+        for (let i = 0; i < 5; i++) {
+            const y = i / 4 * lh;
+            lctx.beginPath(); lctx.moveTo(0, y); lctx.lineTo(lw, y); lctx.stroke();
+        }
+        // Loss line
+        lctx.beginPath();
+        for (let i = 0; i < LOSS_HISTORY.length; i++) {
+            const x = i / (Math.max(LOSS_HISTORY.length - 1, 1)) * lw;
+            const y = lh - ((LOSS_HISTORY[i] - minLoss) / (maxLoss - minLoss)) * (lh - 20) - 10;
+            i === 0 ? lctx.moveTo(x, y) : lctx.lineTo(x, y);
+        }
+        lctx.strokeStyle = '#2070c0';
+        lctx.lineWidth = 2;
+        lctx.stroke();
+        // Fill under curve
+        lctx.lineTo(lw, lh); lctx.lineTo(0, lh); lctx.closePath();
+        lctx.fillStyle = 'rgba(32,112,192,0.05)';
+        lctx.fill();
+        
+        lctx.fillStyle = '#8888aa';
+        lctx.font = '10px sans-serif';
+        lctx.fillText('Loss', 8, 14);
+        lctx.fillText(`Epoch ${trainEpoch}/${TOTAL_EPOCHS}`, lw - 120, 14);
+    }
+    
+    // Accuracy chart
+    const accCanvas = document.getElementById('accChart');
+    const actx = accCanvas.getContext('2d');
+    accCanvas.width = accCanvas.clientWidth * dpr;
+    accCanvas.height = accCanvas.clientHeight * dpr;
+    actx.scale(dpr, dpr);
+    const aw = accCanvas.clientWidth, ah = accCanvas.clientHeight;
+    actx.fillStyle = '#fafafe';
+    actx.fillRect(0, 0, aw, ah);
+    
+    if (ACC_HISTORY.length > 0) {
+        actx.strokeStyle = '#e0e0ee';
+        actx.lineWidth = 0.5;
+        for (let i = 0; i < 5; i++) {
+            const y = i / 4 * ah;
+            actx.beginPath(); actx.moveTo(0, y); actx.lineTo(aw, y); actx.stroke();
+        }
+        actx.beginPath();
+        for (let i = 0; i < ACC_HISTORY.length; i++) {
+            const x = i / (Math.max(ACC_HISTORY.length - 1, 1)) * aw;
+            const y = ah - ACC_HISTORY[i] / 100 * (ah - 20) - 10;
+            i === 0 ? actx.moveTo(x, y) : actx.lineTo(x, y);
+        }
+        actx.strokeStyle = '#3a8a5a';
+        actx.lineWidth = 2;
+        actx.stroke();
+        actx.lineTo(aw, ah); actx.lineTo(0, ah); actx.closePath();
+        actx.fillStyle = 'rgba(58,160,112,0.05)';
+        actx.fill();
+        
+        actx.fillStyle = '#8888aa';
+        actx.font = '10px sans-serif';
+        actx.fillText('Accuracy %', 8, 14);
+        actx.fillText(`Current: ${ACC_HISTORY[ACC_HISTORY.length-1].toFixed(1)}%`, aw - 130, 14);
+    }
+}
+
+function updateBPVisualization() {
+    const canvas = document.getElementById('bpCanvas');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    const w = rect.width, h = rect.height;
+    ctx.fillStyle = '#fafafe';
+    ctx.fillRect(0, 0, w, h);
+    
+    const layers = ['Input', 'FC1', 'FC2', 'Output'];
+    const colors = ['#4080c0', '#c08840', '#3a8a5a', '#2070c0'];
+    const xPos = [40, w * 0.35, w * 0.6, w * 0.85];
+    
+    // Forward pass
+    ctx.fillStyle = '#4080c0';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('→ Forward (compute output)', 10, 20);
+    for (let i = 0; i < layers.length; i++) {
+        ctx.fillStyle = colors[i];
+        ctx.beginPath();
+        ctx.arc(xPos[i], 50, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(layers[i].substring(0, 2), xPos[i], 54);
+    }
+    for (let i = 0; i < layers.length - 1; i++) {
+        ctx.beginPath(); ctx.moveTo(xPos[i] + 15, 50); ctx.lineTo(xPos[i+1] - 15, 50);
+        ctx.strokeStyle = '#4080c0'; ctx.lineWidth = 2; ctx.stroke();
+        const ax = xPos[i+1] - 15;
+        ctx.beginPath(); ctx.moveTo(ax, 45); ctx.lineTo(ax + 8, 50); ctx.lineTo(ax, 55);
+        ctx.strokeStyle = '#4080c0'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    
+    // Loss node
+    ctx.fillStyle = '#c08840';
+    ctx.beginPath(); ctx.arc(w * 0.92, 50, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Loss', w * 0.92, 54);
+    ctx.beginPath(); ctx.moveTo(xPos[3] + 15, 50); ctx.lineTo(w * 0.92 - 15, 50);
+    ctx.strokeStyle = '#c08840'; ctx.lineWidth = 2; ctx.stroke();
+    
+    // Backward pass
+    ctx.fillStyle = '#d03050';
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('← Backward (compute gradients)', 10, h - 20);
+    
+    const yB = h - 50;
+    for (let i = 0; i < layers.length; i++) {
+        ctx.fillStyle = colors[i];
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.arc(xPos[i], yB, 15, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(layers[i].substring(0, 2), xPos[i], yB + 4);
+    }
+    for (let i = layers.length - 1; i > 0; i--) {
+        ctx.beginPath(); ctx.moveTo(xPos[i] - 15, yB); ctx.lineTo(xPos[i-1] + 15, yB);
+        ctx.strokeStyle = '#d03050'; ctx.lineWidth = 2; ctx.stroke();
+        const ax = xPos[i-1] + 15;
+        ctx.beginPath(); ctx.moveTo(ax, yB - 5); ctx.lineTo(ax - 8, yB); ctx.lineTo(ax, yB + 5);
+        ctx.strokeStyle = '#d03050'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+}
+
+function doTrainingStep() {
+    if (!trainingRunning || trainingPaused) return;
+    
+    const step = trainStep;
+    const normProgress = step / Math.max(MAX_STEPS - 1, 1);
+    
+    // Simulate realistic MNIST training curves
+    const loss = 0.08 + 2.22 * Math.exp(-normProgress * 6) + 0.3 * Math.exp(-normProgress * 20) * Math.cos(normProgress * 10);
+    const acc = 10 + 82 / (1 + Math.exp(-(normProgress - 0.35) * 12));
+    
+    LOSS_HISTORY.push(Math.max(0.05, loss));
+    ACC_HISTORY.push(Math.min(95, acc + (Math.random() - 0.5) * 2));
+    trainStep++;
+    
+    if (!EPOCH_LOSS[trainEpoch]) EPOCH_LOSS[trainEpoch] = [];
+    if (!EPOCH_ACC[trainEpoch]) EPOCH_ACC[trainEpoch] = [];
+    EPOCH_LOSS[trainEpoch].push(loss);
+    EPOCH_ACC[trainEpoch].push(acc);
+    
+    if (trainStep % STEPS_PER_EPOCH === 0 && trainStep > 0) {
+        trainEpoch++;
+        document.getElementById('trainEpoch').textContent = `Epoch: ${trainEpoch} / ${TOTAL_EPOCHS}`;
+        if (EPOCH_LOSS[trainEpoch - 1] && EPOCH_LOSS[trainEpoch - 1].length > 0) {
+            const avgL = EPOCH_LOSS[trainEpoch - 1].reduce((a, b) => a + b, 0) / EPOCH_LOSS[trainEpoch - 1].length;
+            const avgA = EPOCH_ACC[trainEpoch - 1].reduce((a, b) => a + b, 0) / EPOCH_ACC[trainEpoch - 1].length;
+            const log = document.getElementById('trainingLog');
+            log.innerHTML += `<div class="epoch-line">═══ Epoch ${trainEpoch} ═══ Loss: ${avgL.toFixed(4)} | Acc: ${avgA.toFixed(2)}% ═══</div>`;
+            log.scrollTop = log.scrollHeight;
+            document.getElementById('statusText').innerHTML = `📈 Training epoch ${trainEpoch}/${TOTAL_EPOCHS} — Loss: ${avgL.toFixed(4)}, Acc: ${avgA.toFixed(1)}%`;
+        }
+    }
+    
+    document.getElementById('trainStep').textContent = `Step: ${trainStep} / ${MAX_STEPS}`;
+    updateTrainingCharts();
+    updateBPVisualization();
+    
+    const speed = parseInt(document.getElementById('trainSpeed').value);
+    trainTimer = setTimeout(doTrainingStep, 1000 / speed);
+    
+    if (trainStep >= MAX_STEPS) {
+        stopTraining();
+        document.getElementById('statusText').innerHTML = '✅ Training complete! <span class="highlight">Check the charts and log above.</span>';
+    }
+}
+
+function startTraining() {
+    if (trainingRunning) return;
+    getEpochConfig();
+    trainingRunning = true;
+    trainingPaused = false;
+    document.getElementById('btnTrainStart').disabled = true;
+    document.getElementById('btnTrainPause').disabled = false;
+    document.getElementById('btnTrainPause').textContent = '⏸ Pause';
+    document.getElementById('statusText').innerHTML = '🚀 Training in progress...';
+    if (LOSS_HISTORY.length === 0) {
+        document.getElementById('trainingLog').innerHTML = '<div class="arrow-line">Starting training (simulated)...</div>';
+    }
+    doTrainingStep();
+}
+
+function pauseTraining() {
+    trainingPaused = !trainingPaused;
+    document.getElementById('btnTrainPause').textContent = trainingPaused ? '▶ Resume' : '⏸ Pause';
+    document.getElementById('statusText').innerHTML = trainingPaused ? '⏸ Training paused' : '🚀 Training resumed';
+    if (!trainingPaused) doTrainingStep();
+}
+
+function stopTraining() {
+    trainingRunning = false;
+    trainingPaused = false;
+    if (trainTimer) clearTimeout(trainTimer);
+    document.getElementById('btnTrainStart').disabled = false;
+    document.getElementById('btnTrainPause').disabled = true;
+}
+
+function resetTraining() {
+    stopTraining();
+    trainEpoch = 0;
+    trainStep = 0;
+    LOSS_HISTORY.length = 0;
+    ACC_HISTORY.length = 0;
+    EPOCH_LOSS.length = 0;
+    EPOCH_ACC.length = 0;
+    getEpochConfig();
+    document.getElementById('trainingLog').innerHTML = '<div class="data-line">Ready to train... Click "Start Training"</div>';
+    document.getElementById('statusText').innerHTML = '🔄 Reset — <span class="highlight">ready to train again</span>';
+    updateTrainingCharts();
+    updateBPVisualization();
+}
+
+document.getElementById('btnTrainStart').addEventListener('click', startTraining);
+document.getElementById('btnTrainPause').addEventListener('click', pauseTraining);
+document.getElementById('btnTrainReset').addEventListener('click', resetTraining);
+document.getElementById('trainSpeed').addEventListener('input', function() {
+    document.getElementById('speedLabel').textContent = this.value + 'x';
+});
+document.getElementById('epochInput').addEventListener('change', function() {
+    if (!trainingRunning) getEpochConfig();
+});
+
+// ===========================
+// Initialize
+// ===========================
+renderLayerCards();
+drawNetwork();
+updateTrainingCharts();
+updateBPVisualization();
+
+// Load trained weights from mnist_mlp_weights_ENG.pth (exported as JSON)
+mlp.loadFromJSON('mnist_mlp_weights_ENG.json');
+
+window.addEventListener('resize', () => {
+    drawNetwork();
+    updateTrainingCharts();
+    updateBPVisualization();
+});
+</script>
+</body>
+</html>
